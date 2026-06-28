@@ -1,5 +1,4 @@
-from flask import Flask, render_template
-from cask.core import Cask
+from cask import Cask, render_template
 
 app = Cask(__name__, app_name="My Cask App")
 

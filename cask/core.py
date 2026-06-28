@@ -1,6 +1,5 @@
 # IMPORTS
 import os
-import sys
 import webview
 import socket
 from flask import Flask
@@ -11,8 +10,8 @@ class Cask(Flask):
     # NEW
     def __init__(self, import_name: str, app_name: str = "Python Cask App", *args, **kwargs):
         super().__init__(import_name, *args, **kwargs)
-        self.template_folder=self._get_template_folder_path()
-        self.static_folder=self._get_static_folder_path()
+        self.template_folder = os.path.join(self.root_path, "templates")
+        self.static_folder = os.path.join(self.root_path, "static")
         self.app_name = app_name if app_name else "Python Cask App"
     
     # HELPER METHODS
@@ -21,19 +20,6 @@ class Cask(Flask):
             s.bind(('', 0))
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             return s.getsockname()[1]
-
-    def _get_base_directory(self) -> str:
-        if getattr(sys, 'frozen', False):
-            return sys._MEIPASS
-        else:
-            return os.path.dirname(os.path.abspath(__file__))
-    
-    # MAIN METHODS
-    def _get_static_folder_path(self) -> str:
-        return os.path.join(self._get_base_directory(), 'static')
-
-    def _get_template_folder_path(self) -> str:
-        return os.path.join(self._get_base_directory(), 'templates')
 
     # EXPORT METHODS
     def run_as_app(self, **kwargs):

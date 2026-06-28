@@ -1,4 +1,5 @@
 *.env
+*.egg-info
 venv
 build
 dist
