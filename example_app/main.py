@@ -1,6 +1,7 @@
 from flask import Flask, render_template
+from cask.core import Cask
 
-app = Flask(__name__)
+app = Cask(__name__, app_name="My Cask App")
 
 @app.route('/')
 def home():
@@ -11,4 +12,4 @@ def about():
     return render_template('about.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run_as_app(icon="./static/favicon.ico")
