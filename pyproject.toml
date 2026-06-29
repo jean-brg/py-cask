@@ -10,8 +10,12 @@ requires-python = ">=3.9"
 dependencies = [
     "flask",
     "pywebview",
+    "pyinstaller",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["cask*"]
+
+[project.scripts]
+cask = "cask.cli:main"
