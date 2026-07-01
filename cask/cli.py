@@ -6,6 +6,7 @@ import tomllib
 import argparse
 import ast
 import shutil
+import re
 
 # TOML FUNCTIONS
 def find_toml() -> dict:
@@ -57,15 +58,56 @@ def build_pyinstaller_cmd(config: dict, args: argparse.Namespace) -> list[str]:
     cmd.append(app["entry"])
     return cmd
 
+def run_pyinstaller_cmd(cmd: list[str], verbose: bool) -> tuple[bool, int]:
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    error_count = 0
+
+    for line in process.stdout:
+        if verbose:
+            print(line.strip())
+        else:
+            line = ' '.join(line.split(" ")[1:]).rstrip()
+
+            if line.startswith("INFO:"):
+                truncated = line[:77] + '...' if len(line) > 80 else line
+                print(f"\r  {truncated.strip()}", end="", flush=True)
+
+            elif line.startswith("WARNING:"):
+                print(f"\n  {line.strip()}")
+
+            elif line.startswith("ERROR:"):
+                error_count += 1
+                print(f"\n  {line.strip()}")
+
+    process.wait()
+    print()
+
+    return process.returncode == 0, error_count
+
 def cmd_build(args: argparse.Namespace) -> None:
     """Uses CLI args to package Flask app into executable"""
     config = find_toml()
     validate_toml(config)
     cmd = build_pyinstaller_cmd(config, args)
-    subprocess.run(cmd)
+
+    app_name = config.get("app", {}).get("name", "")
+    print(f"Building {app_name}:")
+
+    build_success, error_count = run_pyinstaller_cmd(cmd, args.verbose)
+
+    if build_success:
+        print(f"Built ./dist/{app_name} successfully")
+    else:
+        print(f"Build of ./dist/{app_name} failed with {error_count} error{'s' if error_count else ''}")
 
     if not args.keep:
-        app_name = config.get("app", {}).get("name", "")
         try:
             if os.path.isdir(f"./build/{app_name}"):
                 shutil.rmtree(f"./build/{app_name}")
@@ -199,6 +241,7 @@ def main() -> None:
     build_parser = subparsers.add_parser("build", help="Package the app using cask.toml")
     build_parser.add_argument("--onefile", action="store_true", help="Packages app as a single binary")
     build_parser.add_argument("--keep", action="store_true", help="Keeps ./build/<app_name>/* and ./<app_name>.spec after building app")
+    build_parser.add_argument("--verbose", action="store_true", help="Prints all of the output lines from the pyinstaller command")
 
     # Command: init
     init_parser = subparsers.add_parser("init", help="Generate a cask.toml for this project")
