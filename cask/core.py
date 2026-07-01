@@ -9,7 +9,7 @@ import threading
 # MAIN CLASS
 class Cask(Flask):
     # NEW
-    def __init__(self, import_name: str, app_name: str = "Python-Cask-App", *args, **kwargs):
+    def __init__(self, import_name: str, app_name: str = "MyCaskApp", *args, **kwargs):
         super().__init__(import_name, *args, **kwargs)
 
         if getattr(sys, "frozen", False):
@@ -17,7 +17,7 @@ class Cask(Flask):
 
         self.template_folder = os.path.join(self.root_path, "templates")
         self.static_folder = os.path.join(self.root_path, "static")
-        self.app_name = self._safe_app_name(app_name) if app_name else "Python-Cask-App"
+        self.app_name = self._safe_app_name(app_name) if app_name else "MyCaskApp"
     
     # HELPER METHODS
     def _get_free_port(self) -> int:
