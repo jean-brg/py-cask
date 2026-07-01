@@ -5,6 +5,7 @@ import subprocess
 import tomllib
 import argparse
 import ast
+import shutil
 
 # TOML FUNCTIONS
 def find_toml() -> dict:
@@ -62,6 +63,18 @@ def cmd_build(args: argparse.Namespace) -> None:
     validate_toml(config)
     cmd = build_pyinstaller_cmd(config, args)
     subprocess.run(cmd)
+
+    if not args.keep:
+        app_name = config.get("app", {}).get("name", "")
+        try:
+            if os.path.isdir(f"./build/{app_name}"):
+                shutil.rmtree(f"./build/{app_name}")
+                if os.path.isdir("./build") and not os.listdir("./build"):
+                    os.rmdir("./build")
+            if os.path.exists(f"./{app_name}.spec"):
+                os.remove(f"./{app_name}.spec")
+        except FileNotFoundError:
+            pass
 
 # COMMAND: INIT
 def find_cask_app_name(entry_file: str) -> str:
@@ -184,7 +197,8 @@ def main() -> None:
 
     # Command: build
     build_parser = subparsers.add_parser("build", help="Package the app using cask.toml")
-    build_parser.add_argument("--onefile", action="store_true", help="Package app as a single binary")
+    build_parser.add_argument("--onefile", action="store_true", help="Packages app as a single binary")
+    build_parser.add_argument("--keep", action="store_true", help="Keeps ./build/<app_name>/* and ./<app_name>.spec after building app")
 
     # Command: init
     init_parser = subparsers.add_parser("init", help="Generate a cask.toml for this project")
