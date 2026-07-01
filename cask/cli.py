@@ -88,7 +88,10 @@ def discover_defaults() -> dict:
     app_name = find_cask_app_name(entry)
 
     icon = next((f for f in [
-        "static/favicon.ico", "static/icon.ico", "static/icon.png"
+        f"static/caskicon.{'icns' if sys.platform == 'darwin' else 'ico'}", 
+        f"static/favicon.{'icns' if sys.platform == 'darwin' else 'ico'}", 
+        "static/icon.ico", 
+        "static/icon.png"
     ] if os.path.isfile(f)), "")
 
     data = []
