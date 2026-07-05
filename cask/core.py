@@ -1,23 +1,28 @@
 # IMPORTS
 import os
-import sys
-import webview
+import re
+import shutil
 import socket
-from flask import Flask
+import sys
 import threading
+
+import webview
+from flask import Flask
 
 # MAIN CLASS
 class Cask(Flask):
-    # NEW
     def __init__(self, import_name: str, app_name: str = "MyCaskApp", *args, **kwargs):
         super().__init__(import_name, *args, **kwargs)
 
-        if getattr(sys, "frozen", False):
+        self.is_instance_initiated = False
+        self.is_running_as_app = getattr(sys, "frozen", False)
+        self.app_name = self._safe_app_name(app_name) if app_name else "MyCaskApp"
+
+        if self.is_running_as_app:
             self.root_path = sys._MEIPASS
 
         self.template_folder = os.path.join(self.root_path, "templates")
         self.static_folder = os.path.join(self.root_path, "static")
-        self.app_name = self._safe_app_name(app_name) if app_name else "MyCaskApp"
     
     # HELPER METHODS
     def _get_free_port(self) -> int:
@@ -27,37 +32,39 @@ class Cask(Flask):
             return s.getsockname()[1]
         
     def _init_instance(self) -> None:
-        if not getattr(sys, "frozen", False):
+        if not self.is_running_as_app:
             return
 
-        seed_dir = os.path.join(sys._MEIPASS, "instance")
-        if not os.path.exists(seed_dir):
+        instance_source_dir = os.path.join(self.root_path, "instance")
+        if not os.path.exists(instance_source_dir):
             return
 
         user_dir = self.get_instance_path()
-        for filename in os.listdir(seed_dir):
+        for filename in os.listdir(instance_source_dir):
             dest = os.path.join(user_dir, filename)
             if not os.path.exists(dest):
-                import shutil
-                shutil.copy2(os.path.join(seed_dir, filename), dest)
+                shutil.copy2(os.path.join(instance_source_dir, filename), dest)
 
     def _safe_app_name(self, raw_name) -> str:
-        import re
         return re.sub(r"[^\w\s-]", "", raw_name).strip()
+    
+    def _get_default_icon(self) -> str | None:
+        ext = "icns" if sys.platform == "darwin" else "ico"
+        path = os.path.join(self.static_folder, f"caskicon.{ext}")
+        return path if os.path.isfile(path) else None
 
     # EXPORT METHODS
     def run_as_app(self, **kwargs):
-        self._init_instance()
         target_port: int = self._get_free_port()
-        icon_path: str = kwargs.get("icon") or ("./static/favicon.ico" if os.path.isfile("./static/favicon.ico") else None)
+        icon_path = self._get_default_icon()
 
-        if getattr(sys, "frozen", False) and kwargs.get("debug"):
+        if self.is_running_as_app and kwargs.get("debug"):
             kwargs["debug"] = False
 
         flask_thread: threading.Thread = threading.Thread(
             target=lambda: self.run(host="127.0.0.1", port=target_port, debug=kwargs.get("debug", False), use_reloader=False),
             daemon=True,
-            name=f"PyFlask Sever: {self.app_name}" if self.app_name else None
+            name=f"PyFlask Server: {self.app_name}"
         )
         flask_thread.start()
 
@@ -65,8 +72,12 @@ class Cask(Flask):
         window.events.closed += lambda: os._exit(0)
         webview.start(icon=icon_path)
 
-    def get_instance_path(self, filename: str = "") -> str:
-        if getattr(sys, 'frozen', False):
+    def get_instance_file_path(self, filename: str = "") -> str:
+        if not self.is_instance_initiated:
+            self._init_instance()
+            self.is_instance_initiated = True
+
+        if self.is_running_as_app:
             if sys.platform == "darwin":
                 base_instance = os.path.join(os.path.expanduser("~"), "Library", "Application Support", self.app_name, "instance")
             elif sys.platform == "win32":
@@ -79,9 +90,14 @@ class Cask(Flask):
         os.makedirs(base_instance, exist_ok=True)
         return os.path.join(base_instance, filename) if filename else base_instance
     
-    def read_instance_file(self, filename: str, default: str = "") -> str:
-        path = self.get_instance_path(filename)
+    def read_from_instance_file(self, filename: str, default: str = "", mode: str = "r") -> str:
+        path = self.get_instance_file_path(filename)
         if not os.path.exists(path):
             return default
-        with open(path, "r") as f:
+        with open(path, mode) as f:
             return f.read()
+        
+    def write_to_instance_file(self, filename: str, content: str, mode: str = "w") -> None:
+        path = self.get_instance_file_path(filename)
+        with open(path, mode) as f:
+            f.write(content)
