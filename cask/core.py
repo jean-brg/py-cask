@@ -11,56 +11,79 @@ from flask import Flask
 
 # MAIN CLASS
 class Cask(Flask):
-    def __init__(self, import_name: str, app_name: str = "MyCaskApp", *args, **kwargs):
+    """
+    A Flask subclass that packages a web app as a desktop application.
+
+    Extends Flask with desktop-specific functionality including native window
+    management via pywebview, cross-platform instance file handling, and
+    PyInstaller compatibility.
+
+    Args:
+        import_name: The name of the application package, passed to Flask (usually `__name__`).
+        app_name: The name displayed in the window title and used for the
+                  instance folder. Defaults to 'MyCaskApp'.
+
+    Example:
+        app = Cask(__name__, app_name="My App")
+
+        @app.route('/')
+        def home():
+            return render_template('home.html')
+
+        if __name__ == '__main__':
+            app.run_as_app()
+    """
+    def __init__(self, import_name: str, app_name: str = "MyCaskApp", *args, **kwargs) -> None:
         super().__init__(import_name, *args, **kwargs)
 
-        self._base_instance = ""
-        self.is_instance_initiated = False
-        self.is_running_as_package = getattr(sys, "frozen", False)
-        self.app_name = self._safe_app_name(app_name) if app_name else "MyCaskApp"
+        self._base_instance: str = ""
+        self.is_instance_initiated: bool = False
+        self.is_running_as_package: bool = getattr(sys, "frozen", False)
+        self.app_name: str = self._safe_app_name(app_name) if app_name else "MyCaskApp"
 
         if self.is_running_as_package:
             self.root_path = sys._MEIPASS
 
-        self.template_folder = os.path.join(self.root_path, "templates")
-        self.static_folder = os.path.join(self.root_path, "static")
+        self.template_folder: str = os.path.join(self.root_path, "templates")
+        self.static_folder: str = os.path.join(self.root_path, "static")
     
     # HELPER METHODS
     def _get_free_port(self) -> int:
+        """Finds and returns a free port to host the app on"""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("", 0))
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             return s.getsockname()[1]
         
     def _init_instance(self) -> None:
-        # Set the base instance only if instance is initialized
+        """Initializes the instance directory and sets the `_base_instance` path"""
         self._base_instance = self._get_instance_path()
 
-        # If app is running as Python, use local path
         if not self.is_running_as_package:
             return
 
-        # If no instance was bundled, do not copy files
         instance_source_dir = os.path.join(self.root_path, "instance")
         if not os.path.exists(instance_source_dir):
             return
 
-        # Copy instance file from bundle and set self._base_instance property
         os.makedirs(self._base_instance, exist_ok=True)
         for filename in os.listdir(instance_source_dir):
             dest = os.path.join(self._base_instance, filename)
             if not os.path.exists(dest):
                 shutil.copy2(os.path.join(instance_source_dir, filename), dest)
 
-    def _safe_app_name(self, raw_name) -> str:
+    def _safe_app_name(self, raw_name: str) -> str:
+        """Returns a safe name for the app with proper formatting"""
         return re.sub(r"[^\w\s-]", "", raw_name).strip()
     
     def _get_default_icon(self) -> str | None:
+        """Returns the file path to the app icon, if found"""
         ext = "icns" if sys.platform == "darwin" else "ico"
         path = os.path.join(self.static_folder, f"caskicon.{ext}")
         return path if os.path.isfile(path) else None
     
     def _get_instance_path(self) -> str:
+        """Returns the path to the instance folder, based on the system and app state"""
         if self.is_running_as_package:
             if sys.platform == "darwin":
                 return os.path.join(os.path.expanduser("~"), "Library", "Application Support", self.app_name, "instance")
@@ -71,7 +94,8 @@ class Cask(Flask):
         return os.path.join(self.root_path, "instance")
 
     # EXPORT METHODS
-    def run_as_app(self, **kwargs):
+    def run_as_app(self, **kwargs) -> None:
+        """Main method to run Cask app in app window"""
         target_port: int = self._get_free_port()
         icon_path = self._get_default_icon()
 
@@ -90,6 +114,7 @@ class Cask(Flask):
         webview.start(icon=icon_path)
 
     def get_instance_file_path(self, filename: str = "") -> str:
+        """Returns the file path for a file in `instance`"""
         if not self.is_instance_initiated:
             self._init_instance()
             self.is_instance_initiated = True
@@ -97,6 +122,7 @@ class Cask(Flask):
         return os.path.join(self._base_instance, filename) if filename else self._base_instance
     
     def read_from_instance_file(self, filename: str, default: str = "", mode: str = "r") -> str:
+        """Reads and returns the content of a file in `instance`"""
         path = self.get_instance_file_path(filename)
         if not os.path.exists(path):
             return default
@@ -105,5 +131,6 @@ class Cask(Flask):
         
     def write_to_instance_file(self, filename: str, content: str, mode: str = "w") -> None:
         path = self.get_instance_file_path(filename)
+        """Writes  the content of a file in `instance`, creating the file if needed"""
         with open(path, mode) as f:
             f.write(content)

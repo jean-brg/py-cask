@@ -6,7 +6,6 @@ import tomllib
 import argparse
 import ast
 import shutil
-import re
 
 # TOML FUNCTIONS
 def find_toml() -> dict:
@@ -51,14 +50,15 @@ def build_pyinstaller_cmd(config: dict, args: argparse.Namespace) -> list[str]:
     if args.onefile:
         cmd.append("--onefile")
 
-    path_seperator = ";" if sys.platform == "win32" else ":"
+    path_separator = ";" if sys.platform == "win32" else ":"
     for source, dest in data.items():
-        cmd += ["--add-data", f"{source}{path_seperator}{dest}"]
+        cmd += ["--add-data", f"{source}{path_separator}{dest}"]
 
     cmd.append(app["entry"])
     return cmd
 
 def run_pyinstaller_cmd(cmd: list[str], verbose: bool) -> tuple[bool, int]:
+    """Runs the pyinstaller cmd and parses the output"""
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
