@@ -14,11 +14,12 @@ class Cask(Flask):
     def __init__(self, import_name: str, app_name: str = "MyCaskApp", *args, **kwargs):
         super().__init__(import_name, *args, **kwargs)
 
+        self._base_instance = ""
         self.is_instance_initiated = False
-        self.is_running_as_app = getattr(sys, "frozen", False)
+        self.is_running_as_package = getattr(sys, "frozen", False)
         self.app_name = self._safe_app_name(app_name) if app_name else "MyCaskApp"
 
-        if self.is_running_as_app:
+        if self.is_running_as_package:
             self.root_path = sys._MEIPASS
 
         self.template_folder = os.path.join(self.root_path, "templates")
@@ -32,16 +33,22 @@ class Cask(Flask):
             return s.getsockname()[1]
         
     def _init_instance(self) -> None:
-        if not self.is_running_as_app:
+        # Set the base instance only if instance is initialized
+        self._base_instance = self._get_instance_path()
+
+        # If app is running as Python, use local path
+        if not self.is_running_as_package:
             return
 
+        # If no instance was bundled, do not copy files
         instance_source_dir = os.path.join(self.root_path, "instance")
         if not os.path.exists(instance_source_dir):
             return
 
-        user_dir = self.get_instance_path()
+        # Copy instance file from bundle and set self._base_instance property
+        os.makedirs(self._base_instance, exist_ok=True)
         for filename in os.listdir(instance_source_dir):
-            dest = os.path.join(user_dir, filename)
+            dest = os.path.join(self._base_instance, filename)
             if not os.path.exists(dest):
                 shutil.copy2(os.path.join(instance_source_dir, filename), dest)
 
@@ -52,13 +59,23 @@ class Cask(Flask):
         ext = "icns" if sys.platform == "darwin" else "ico"
         path = os.path.join(self.static_folder, f"caskicon.{ext}")
         return path if os.path.isfile(path) else None
+    
+    def _get_instance_path(self) -> str:
+        if self.is_running_as_package:
+            if sys.platform == "darwin":
+                return os.path.join(os.path.expanduser("~"), "Library", "Application Support", self.app_name, "instance")
+            elif sys.platform == "win32":
+                return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), self.app_name, "instance")
+            else:
+                return os.path.join(os.path.expanduser("~"), ".local", "share", self.app_name, "instance")
+        return os.path.join(self.root_path, "instance")
 
     # EXPORT METHODS
     def run_as_app(self, **kwargs):
         target_port: int = self._get_free_port()
         icon_path = self._get_default_icon()
 
-        if self.is_running_as_app and kwargs.get("debug"):
+        if self.is_running_as_package and kwargs.get("debug"):
             kwargs["debug"] = False
 
         flask_thread: threading.Thread = threading.Thread(
@@ -77,18 +94,7 @@ class Cask(Flask):
             self._init_instance()
             self.is_instance_initiated = True
 
-        if self.is_running_as_app:
-            if sys.platform == "darwin":
-                base_instance = os.path.join(os.path.expanduser("~"), "Library", "Application Support", self.app_name, "instance")
-            elif sys.platform == "win32":
-                base_instance = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), self.app_name, "instance")
-            else:
-                base_instance = os.path.join(os.path.expanduser("~"), ".local", "share", self.app_name, "instance")
-        else:
-            base_instance = os.path.join(self.root_path, 'instance')
-
-        os.makedirs(base_instance, exist_ok=True)
-        return os.path.join(base_instance, filename) if filename else base_instance
+        return os.path.join(self._base_instance, filename) if filename else self._base_instance
     
     def read_from_instance_file(self, filename: str, default: str = "", mode: str = "r") -> str:
         path = self.get_instance_file_path(filename)
