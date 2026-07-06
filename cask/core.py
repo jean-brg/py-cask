@@ -5,6 +5,7 @@ import shutil
 import socket
 import sys
 import threading
+import time
 
 import webview
 from flask import Flask
@@ -74,7 +75,12 @@ class Cask(Flask):
 
     def _safe_app_name(self, raw_name: str) -> str:
         """Returns a safe name for the app with proper formatting"""
-        return re.sub(r"[^\w\s-]", "", raw_name).strip()
+        sanitized = re.sub(r"[^\w\s-]", "", raw_name).strip()
+        if not sanitized:
+            print(f"Error: app_name '{raw_name}' is empty after sanitization.")
+            print("Please use alphanumeric characters, spaces, or hyphens.")
+            sys.exit(1)
+        return sanitized
     
     def _get_default_icon(self) -> str | None:
         """Returns the file path to the app icon, if found"""
@@ -92,6 +98,44 @@ class Cask(Flask):
             else:
                 return os.path.join(os.path.expanduser("~"), ".local", "share", self.app_name, "instance")
         return os.path.join(self.root_path, "instance")
+    
+    def _wait_for_flask(self, port: int, timeout: float = 10.0) -> bool:
+        """Pings the Flask server until it responds or timeout is reached"""
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                    return True
+            except OSError:
+                time.sleep(0.05)
+        return False
+
+    def _flask_timeout_error_page(self) -> str:
+        """Returns an HTML error page for when Flask fails to start"""
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: system-ui; display: flex; justify-content: center; 
+                    align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+                .card { background: white; padding: 2rem; border-radius: 8px; 
+                        max-width: 500px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                h2 { color: #c0392b; margin-top: 0; }
+                details { margin-top: 1rem; }
+                summary { cursor: pointer; color: #666; font-size: 0.9rem; }
+                pre { background: #f0f0f0; padding: 1rem; border-radius: 4px; 
+                    font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>Failed to start</h2>
+                <p>The application server did not respond within 10 seconds.</p>
+            </div>
+        </body>
+        </html>
+        """
 
     # EXPORT METHODS
     def run_as_app(self, **kwargs) -> None:
@@ -109,7 +153,11 @@ class Cask(Flask):
         )
         flask_thread.start()
 
-        window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}")
+        if self._wait_for_flask(target_port):
+            window = webview.create_window(self.app_name, "http://127.0.0.1:{target_port}")
+        else:
+            window = webview.create_window(self.app_name, html=self._flask_timeout_error_page())
+
         window.events.closed += lambda: os._exit(0)
         webview.start(icon=icon_path)
 

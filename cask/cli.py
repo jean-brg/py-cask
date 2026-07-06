@@ -6,6 +6,7 @@ import tomllib
 import argparse
 import ast
 import shutil
+import re
 
 # TOML FUNCTIONS
 def find_toml() -> dict:
@@ -29,6 +30,54 @@ def validate_toml(config: dict) -> None:
     if not os.path.exists(app["entry"]):
         print(f"Error: entry file '{app['entry']}' not found")
         sys.exit(1)
+
+# HELPER FUNCTIONS
+def _invalid_cask_name_fallback(reason: str) -> str:
+    """Prints a warning and returns the default app name"""
+    print(f"Warning: Could not find proper name due to: {reason}, using \"MyCaskApp\" as default.")
+    print('You can override this in interactive mode or set the name in [app] in cask.toml.')
+    return "MyCaskApp"
+
+def _safe_app_name(raw_name: str) -> str:
+    """Returns a safe name for the app with proper formatting"""
+    sanitized = re.sub(r"[^\w\s-]", "", raw_name).strip()
+    if not sanitized:
+        print(f"Error: app_name '{raw_name}' is empty after sanitization.")
+        print("Please use alphanumeric characters, spaces, or hyphens.")
+        sys.exit(1)
+    return sanitized
+
+def find_cask_app_name(entry_file: str) -> str:
+    """Uses the entry file's syntax tree to find the app_name of the Cask app"""
+    if not entry_file or not os.path.isfile(entry_file):
+        return _invalid_cask_name_fallback("No entry file found to find name")
+    try:
+        with open(entry_file) as f:
+            tree = ast.parse(f.read())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            if not isinstance(node.value, ast.Call):  # guards against x = 1 style assignments
+                continue
+            func = node.value.func
+            is_cask_call = (
+                (isinstance(func, ast.Name) and func.id == "Cask") or
+                (isinstance(func, ast.Attribute) and func.attr == "Cask")
+            )
+            if not is_cask_call:
+                continue
+            for keyword in node.value.keywords:
+                if keyword.arg != "app_name":
+                    continue
+                if isinstance(keyword.value, ast.Constant):
+                    return _safe_app_name(keyword.value.value)
+                else:
+                    return _invalid_cask_name_fallback("app_name is not a string literal")
+        return "MyCaskApp"
+    except SyntaxError:
+        return _invalid_cask_name_fallback("Could not parse entry file")
+    except Exception:
+        return _invalid_cask_name_fallback("Unexpected error reading entry file")
 
 # COMMAND: BUILD
 def build_pyinstaller_cmd(config: dict, args: argparse.Namespace) -> list[str]:
@@ -98,7 +147,8 @@ def cmd_build(args: argparse.Namespace) -> None:
     cmd = build_pyinstaller_cmd(config, args)
 
     app_name = config.get("app", {}).get("name", "")
-    print(f"Building {app_name}:")
+    cask_webview_app_name = find_cask_app_name(config.get("app", {}).get("entry", ""))
+    print(f"Building {app_name} ({cask_webview_app_name}):")
 
     build_success, error_count = run_pyinstaller_cmd(cmd, args.verbose)
 
@@ -119,23 +169,6 @@ def cmd_build(args: argparse.Namespace) -> None:
             pass
 
 # COMMAND: INIT
-def find_cask_app_name(entry_file: str) -> str:
-    """Uses the entry file's syntax tree to find the app_name of the Cask app"""
-    if not entry_file or not os.path.isfile(entry_file):
-        return "MyCaskApp"
-    try:
-        with open(entry_file) as f:
-            tree = ast.parse(f.read())
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                if node.value.func.id == "Cask":
-                    return next((
-                        key.value.value for key in node.value.keywords if key.arg == "app_name"
-                    ), "MyCaskApp")
-    except Exception:
-        return "MyCaskApp"
-    return "MyCaskApp"
-
 def discover_defaults() -> dict:
     """Scans the current directory to find default values for cask.toml"""
     
