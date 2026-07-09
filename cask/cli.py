@@ -24,6 +24,13 @@ def validate_toml(config: dict) -> None:
     if not app.get("name"):
         print("Error: cask.toml missing [app] name")
         sys.exit(1)
+    
+    sanitized = re.sub(r"[^\w\s-]", "", app["name"]).strip()
+    if not sanitized:
+        print(f"Error: app name '{app['name']}' is empty after sanitization.")
+        print("Please use alphanumeric characters, spaces, or hyphens.")
+        sys.exit(1)
+
     if not app.get("entry"):
         print("Error: cask.toml missing [app] entry")
         sys.exit(1)
@@ -37,15 +44,6 @@ def _invalid_cask_name_fallback(reason: str) -> str:
     print(f"Warning: Could not find proper name due to: {reason}, using \"MyCaskApp\" as default.")
     print('You can override this in interactive mode or set the name in [app] in cask.toml.')
     return "MyCaskApp"
-
-def _safe_app_name(raw_name: str) -> str:
-    """Returns a safe name for the app with proper formatting"""
-    sanitized = re.sub(r"[^\w\s-]", "", raw_name).strip()
-    if not sanitized:
-        print(f"Error: app_name '{raw_name}' is empty after sanitization.")
-        print("Please use alphanumeric characters, spaces, or hyphens.")
-        sys.exit(1)
-    return sanitized
 
 def find_cask_app_name(entry_file: str) -> str:
     """Uses the entry file's syntax tree to find the app_name of the Cask app"""
@@ -70,7 +68,7 @@ def find_cask_app_name(entry_file: str) -> str:
                 if keyword.arg != "app_name":
                     continue
                 if isinstance(keyword.value, ast.Constant):
-                    return _safe_app_name(keyword.value.value)
+                    return keyword.value.value
                 else:
                     return _invalid_cask_name_fallback("app_name is not a string literal")
         return "MyCaskApp"

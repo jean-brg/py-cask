@@ -154,7 +154,7 @@ class Cask(Flask):
         flask_thread.start()
 
         if self._wait_for_flask(target_port):
-            window = webview.create_window(self.app_name, "http://127.0.0.1:{target_port}")
+            window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}")
         else:
             window = webview.create_window(self.app_name, html=self._flask_timeout_error_page())
 
@@ -178,7 +178,7 @@ class Cask(Flask):
             return f.read()
         
     def write_to_instance_file(self, filename: str, content: str, mode: str = "w") -> None:
+        """Writes the content of a file in `instance`, creating the file if needed"""
         path = self.get_instance_file_path(filename)
-        """Writes  the content of a file in `instance`, creating the file if needed"""
         with open(path, mode) as f:
             f.write(content)
