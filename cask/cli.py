@@ -142,6 +142,11 @@ def run_pyinstaller_cmd(cmd: list[str], verbose: bool) -> tuple[bool, int]:
 
 def cmd_build(args: argparse.Namespace) -> None:
     """Uses CLI args to package Flask app into executable"""
+    if shutil.which("pyinstaller") is None:
+        print("Error: PyInstaller is not installed or not in PATH.")
+        print("Install it with: pip install pyinstaller")
+        sys.exit(1)
+
     config = find_toml()
     validate_toml(config)
     cmd = build_pyinstaller_cmd(config, args)
