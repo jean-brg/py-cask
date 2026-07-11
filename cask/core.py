@@ -250,3 +250,27 @@ class Cask(Flask):
     def set_menu(self, menu: list) -> None:
         """Sets the native application menu (Cannot be changed at run time)"""
         self._menu = menu
+
+    def open_file(self, allowed_extensions: tuple[str] = ("*.*",), allow_multiple: bool = False) -> tuple[str] | None:
+        """Opens a native file picker and returns the selected file path(s)"""
+        self._require_window()
+        return self.window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            allow_multiple=allow_multiple,
+            file_types=(f"Accepted file ({';'.join(list(allowed_extensions))})",)
+        )
+
+    def save_file(self, filename: str = "untitled", directory: str = "/") -> str | None:
+        """Opens a native save file dialog and returns the chosen path"""
+        self._require_window()
+        return self.window.create_file_dialog(
+            webview.FileDialog.SAVE,
+            directory=directory,
+            save_filename=filename
+        )
+
+    def open_folder(self) -> str | None:
+        """Opens a native folder picker and returns the selected folder path"""
+        self._require_window()
+        result = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        return result[0] if result else None
