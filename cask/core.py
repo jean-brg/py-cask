@@ -140,6 +140,7 @@ class Cask(Flask):
         """
     
     def _require_window(self) -> None:
+        """Checks if the window exists before using it"""
         if not hasattr(self, 'window') or self.window is None:
             raise RuntimeError("Window is not available yet. Call run_as_app() first.")
 

@@ -79,7 +79,7 @@ def find_cask_app_name(entry_file: str) -> str:
 
 # COMMAND: BUILD
 def build_pyinstaller_cmd(config: dict, args: argparse.Namespace) -> list[str]:
-    """Uses app config and cli args to generate pyinstaller CLI command"""
+    """Uses app config and CLI args to generate pyinstaller CLI command"""
     app = config.get("app", {})
     data = config.get("data", {})
 
@@ -266,6 +266,21 @@ def cmd_init(args: argparse.Namespace) -> None:
         f.write(content)
     print("Generated cask.toml!")
 
+# COMMAND: RUN
+def cmd_run(args: argparse.Namespace) -> None:
+    """Runs the app from the CLI"""
+    config = find_toml()
+    validate_toml(config)
+    entry = config["app"]["entry"]
+
+    if args.debug:
+        env = os.environ.copy()
+        env["FLASK_APP"] = entry
+        env["FLASK_DEBUG"] = "1"
+        subprocess.run(["flask", "run"], env=env)
+    else:
+        subprocess.run([sys.executable, entry])
+
 # MAIN FUNCTION
 def main() -> None:
     """Main Cask CLI function"""
@@ -284,6 +299,10 @@ def main() -> None:
     init_parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode for guidance")
     init_parser.add_argument("--force", action="store_true", help="Force creates cask.toml file, overwrites existing cask.toml")
 
+    # Command: run
+    run_parser = subparsers.add_parser("run", help="Run the app from the CLI")
+    run_parser.add_argument("--debug", action="store_true", help="Run the app in debug mode")
+
     # Args
     args = parser.parse_args()
 
@@ -291,6 +310,8 @@ def main() -> None:
         cmd_build(args)
     elif args.command == "init":
         cmd_init(args)
+    elif args.command == "run":
+        cmd_run(args)
     else:
         parser.print_help()
 
