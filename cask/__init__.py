@@ -36,6 +36,9 @@ from flask import request_started as request_started
 from flask import request_tearing_down as request_tearing_down
 from flask import template_rendered as template_rendered
 
+# WEBVIEW RE-IMPORTS
+from webview.menu import Menu, MenuAction, MenuSeparator
+
 # EXPORTS
 __all__ = [
     "Cask",
@@ -72,5 +75,8 @@ __all__ = [
     "request_started",
     "request_tearing_down",
     "template_rendered",
+    "Menu",
+    "MenuAction", 
+    "MenuSeparator",
 ]
 __version__ = "0.1.0"

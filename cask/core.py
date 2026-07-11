@@ -37,6 +37,7 @@ class Cask(Flask):
     def __init__(self, import_name: str, app_name: str = "MyCaskApp", *args, **kwargs) -> None:
         super().__init__(import_name, *args, **kwargs)
 
+        self._menu = None
         self._base_instance: str = ""
         self.is_instance_initiated: bool = False
         self.is_running_as_package: bool = getattr(sys, "frozen", False)
@@ -154,9 +155,9 @@ class Cask(Flask):
         flask_thread.start()
 
         if self._wait_for_flask(target_port):
-            window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}")
+            window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}", menu=self._menu)
         else:
-            window = webview.create_window(self.app_name, html=self._flask_timeout_error_page())
+            window = webview.create_window(self.app_name, html=self._flask_timeout_error_page(), menu=self._menu)
 
         window.events.closed += lambda: os._exit(0)
         webview.start(icon=icon_path)
@@ -182,3 +183,7 @@ class Cask(Flask):
         path = self.get_instance_file_path(filename)
         with open(path, mode) as f:
             f.write(content)
+
+    def set_menu(self, menu: list) -> None:
+        """Sets the native application menu (Cannot be changed at run time)"""
+        self._menu = menu
