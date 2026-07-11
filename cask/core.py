@@ -38,6 +38,7 @@ class Cask(Flask):
         super().__init__(import_name, *args, **kwargs)
 
         self._menu = None
+        self.window = None
         self._base_instance: str = ""
         self.is_instance_initiated: bool = False
         self.is_running_as_package: bool = getattr(sys, "frozen", False)
@@ -137,12 +138,73 @@ class Cask(Flask):
         </body>
         </html>
         """
+    
+    def _require_window(self) -> None:
+        if not hasattr(self, 'window') or self.window is None:
+            raise RuntimeError("Window is not available yet. Call run_as_app() first.")
 
-    # EXPORT METHODS
+    # WINDOW METHODS
+    def prompt(self, message: str, default: str = "") -> str | None:
+        """Shows a native web prompt dialog and returns the user's input"""
+        self._require_window()
+        return self.window.evaluate_js(f"prompt({message!r}, {default!r})")
+
+    def alert(self, message: str) -> None:
+        """Shows a native web alert dialog"""
+        self._require_window()
+        self.window.evaluate_js(f"alert({message!r})")
+
+    def confirm(self, message: str) -> bool | None:
+        """Shows a native confirmation dialog"""
+        self._require_window()
+        return self.window.evaluate_js(f"confirm({message!r})")
+
+    def evaluate_js(self, code: str) -> any:
+        """Runs arbitrary JavaScript in the webview and returns the result"""
+        self._require_window()
+        return self.window.evaluate_js(code)
+    
+    def minimize(self) -> None:
+        """Minimizes the app window"""
+        self._require_window()
+        self.window.minimize()
+
+    def restore(self) -> None:
+        """Restores a minimized or maximized window"""
+        self._require_window()
+        self.window.restore()
+
+    def toggle_fullscreen(self) -> None:
+        """Toggles fullscreen mode"""
+        self._require_window()
+        self.window.toggle_fullscreen()
+
+    def resize(self, width: int, height: int) -> None:
+        """Resizes the window to the given dimensions in pixels"""
+        self._require_window()
+        self.window.resize(width, height)
+
+    def set_title(self, title: str) -> None:
+        """Changes the window title at runtime"""
+        self._require_window()
+        self.window.title = title
+
+    def hide(self) -> None:
+        """Hides the window without closing it"""
+        self._require_window()
+        self.window.hide()
+
+    def show(self) -> None:
+        """Shows a hidden window"""
+        self._require_window()
+        self.window.show()
+
+    # APP METHODS
     def run_as_app(self, **kwargs) -> None:
         """Main method to run Cask app in app window"""
         target_port: int = self._get_free_port()
         icon_path = self._get_default_icon()
+        window_options = kwargs.get("window_options", {})
 
         if self.is_running_as_package and kwargs.get("debug"):
             kwargs["debug"] = False
@@ -155,11 +217,11 @@ class Cask(Flask):
         flask_thread.start()
 
         if self._wait_for_flask(target_port):
-            window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}", menu=self._menu)
+            self.window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}", menu=self._menu, **window_options)
         else:
-            window = webview.create_window(self.app_name, html=self._flask_timeout_error_page(), menu=self._menu)
+            self.window = webview.create_window(self.app_name, html=self._flask_timeout_error_page(), menu=self._menu, **window_options)
 
-        window.events.closed += lambda: os._exit(0)
+        self.window.events.closed += lambda: os._exit(0)
         webview.start(icon=icon_path)
 
     def get_instance_file_path(self, filename: str = "") -> str:
