@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "cask"
 version = "0.1.0"
 description = "A minimalistic Flask app packager"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "flask",
     "pywebview",
