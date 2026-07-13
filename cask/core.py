@@ -6,6 +6,8 @@ import socket
 import sys
 import threading
 import time
+import json
+from html import escape
 
 import webview
 from flask import Flask
@@ -52,7 +54,10 @@ class Cask(Flask):
     
     # HELPER METHODS
     def _get_free_port(self) -> int:
-        """Finds and returns a free port to host the app on"""
+        """
+        Finds and returns a free port to host the app on.
+        Note: May very rarely lead to a race condition if other apps are being launched in parallel
+        """
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("", 0))
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -71,17 +76,23 @@ class Cask(Flask):
 
         os.makedirs(self._base_instance, exist_ok=True)
         for filename in os.listdir(instance_source_dir):
+            src = os.path.join(instance_source_dir, filename)
             dest = os.path.join(self._base_instance, filename)
-            if not os.path.exists(dest):
-                shutil.copy2(os.path.join(instance_source_dir, filename), dest)
+            if os.path.exists(dest):
+                continue
+            if os.path.isdir(src):
+                shutil.copytree(src, dest)
+            else:
+                shutil.copy2(src, dest)
 
     def _safe_app_name(self, raw_name: str) -> str:
         """Returns a safe name for the app with proper formatting"""
         sanitized = re.sub(r"[^\w\s-]", "", raw_name).strip()
         if not sanitized:
-            print(f"Error: app_name '{raw_name}' is empty after sanitization.")
-            print("Please use alphanumeric characters, spaces, or hyphens.")
-            sys.exit(1)
+            raise ValueError(
+                f"app_name '{raw_name}' is empty after sanitization. "
+                "Please use alphanumeric characters, spaces, or hyphens."
+            )
         return sanitized
     
     def _get_default_icon(self) -> str | None:
@@ -112,28 +123,37 @@ class Cask(Flask):
                 time.sleep(0.05)
         return False
 
-    def _flask_timeout_error_page(self) -> str:
+    def _flask_timeout_error_page(self, error_detail: str = "", show_details: bool = False) -> str:
         """Returns an HTML error page for when Flask fails to start"""
-        return """
+        details_html = ""
+        if show_details and error_detail:
+            details_html = f"""
+                    <details>
+                        <summary>Show details</summary>
+                        <pre>{escape(error_detail)}</pre>
+                    </details>"""
+
+        return f"""
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body { font-family: system-ui; display: flex; justify-content: center; 
-                    align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
-                .card { background: white; padding: 2rem; border-radius: 8px; 
-                        max-width: 500px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-                h2 { color: #c0392b; margin-top: 0; }
-                details { margin-top: 1rem; }
-                summary { cursor: pointer; color: #666; font-size: 0.9rem; }
-                pre { background: #f0f0f0; padding: 1rem; border-radius: 4px; 
-                    font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; }
+                body {{ font-family: system-ui; display: flex; justify-content: center; 
+                    align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }}
+                .card {{ background: white; padding: 2rem; border-radius: 8px; 
+                        max-width: 500px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+                h2 {{ color: #c0392b; margin-top: 0; }}
+                details {{ margin-top: 1rem; }}
+                summary {{ cursor: pointer; color: #666; font-size: 0.9rem; }}
+                pre {{ background: #f0f0f0; padding: 1rem; border-radius: 4px; 
+                    font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; }}
             </style>
         </head>
         <body>
             <div class="card">
                 <h2>Failed to start</h2>
                 <p>The application server did not respond within 10 seconds.</p>
+                {details_html}
             </div>
         </body>
         </html>
@@ -148,17 +168,17 @@ class Cask(Flask):
     def prompt(self, message: str, default: str = "") -> str | None:
         """Shows a native web prompt dialog and returns the user's input"""
         self._require_window()
-        return self.window.evaluate_js(f"prompt({message!r}, {default!r})")
+        return self.window.evaluate_js(f"prompt({json.dumps(message)}, {json.dumps(default)})")
 
     def alert(self, message: str) -> None:
         """Shows a native web alert dialog"""
         self._require_window()
-        self.window.evaluate_js(f"alert({message!r})")
+        self.window.evaluate_js(f"alert({json.dumps(message)})")
 
     def confirm(self, message: str) -> bool | None:
         """Shows a native confirmation dialog"""
         self._require_window()
-        return self.window.evaluate_js(f"confirm({message!r})")
+        return self.window.evaluate_js(f"confirm({json.dumps(message)})")
 
     def evaluate_js(self, code: str) -> any:
         """Runs arbitrary JavaScript in the webview and returns the result"""
@@ -204,14 +224,25 @@ class Cask(Flask):
     def run_as_app(self, **kwargs) -> None:
         """Main method to run Cask app in app window"""
         target_port: int = self._get_free_port()
-        icon_path = self._get_default_icon()
+        icon_path = kwargs.get("icon", "") or self._get_default_icon()
         window_options = kwargs.get("window_options", {})
+        debug = kwargs.get("debug", False)
 
-        if self.is_running_as_package and kwargs.get("debug"):
-            kwargs["debug"] = False
+        if self.is_running_as_package and debug:
+            debug = False
+
+        show_error_details = kwargs.get("show_error_details", debug)
+
+        flask_error: list[Exception] = []
+
+        def _run_flask():
+            try:
+                self.run(host="127.0.0.1", port=target_port, debug=debug, use_reloader=False)
+            except Exception as e:
+                flask_error.append(e)
 
         flask_thread: threading.Thread = threading.Thread(
-            target=lambda: self.run(host="127.0.0.1", port=target_port, debug=kwargs.get("debug", False), use_reloader=False),
+            target=_run_flask,
             daemon=True,
             name=f"PyFlask Server: {self.app_name}"
         )
@@ -220,9 +251,15 @@ class Cask(Flask):
         if self._wait_for_flask(target_port):
             self.window = webview.create_window(self.app_name, f"http://127.0.0.1:{target_port}", menu=self._menu, **window_options)
         else:
-            self.window = webview.create_window(self.app_name, html=self._flask_timeout_error_page(), menu=self._menu, **window_options)
+            error_detail = str(flask_error[0]) if flask_error else "No response within 10 seconds."
+            self.window = webview.create_window(
+                self.app_name, 
+                html=self._flask_timeout_error_page(error_detail, show_error_details),
+                menu=self._menu, 
+                **window_options
+            )
 
-        self.window.events.closed += lambda: os._exit(0)
+        self.window.events.closed += lambda: sys.exit(0)
         webview.start(icon=icon_path)
 
     def get_instance_file_path(self, filename: str = "") -> str:
@@ -242,8 +279,9 @@ class Cask(Flask):
             return f.read()
         
     def write_to_instance_file(self, filename: str, content: str, mode: str = "w") -> None:
-        """Writes the content of a file in `instance`, creating the file if needed"""
+        """Writes the content of a file in `instance`, creating the file (and any parent dirs) if needed"""
         path = self.get_instance_file_path(filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, mode) as f:
             f.write(content)
 
