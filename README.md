@@ -18,6 +18,9 @@ To build executables, also install PyInstaller:
 pip install pyinstaller
 ```
 
+## Documentation
+Full API reference is available in [/docs](/docs).
+
 ## Quickstart
 Cask wraps the `Flask` object, meaning you don't need to rewrite any code to use Cask. Just change the import, app object, and run it with `run_as_app()` to run the code as the app.
 
@@ -46,6 +49,7 @@ cask run
 
 ## Project Structure
 Cask expects a standard Flask layout:
+```
 my-app/
 ├── main.py
 ├── static/
@@ -53,7 +57,7 @@ my-app/
 ├── templates/
 │   └── index.html
 └── instance/           # For runtime data (databases, config, etc.) (Optional)
-
+```
 
 ## Packaging into an Executable
 ```bash
@@ -86,4 +90,4 @@ icon = "static/caskicon.ico"
 Use `cask init -i` for interactive prompts instead of auto-discovered values.
 
 ## License
-MIT
+[MIT](./LICENSE)
