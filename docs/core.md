@@ -29,7 +29,8 @@ Starts the Flask server in a background thread and opens the app in a native pyw
 **Note:** If Flask does not respond within 10 seconds, a timeout error page is shown in the window instead.
 
 ### `set_menu(menu)`
-Sets the application menu shown in the menu bar. Must be called before `run_as_app()`. For reference: [pywebview menu docs](https://pywebview.flowrl.com/api/#webview-menu)
+Sets the application menu shown in the menu bar. Must be called before `run_as_app()`. 
+More info: [pywebview menu docs](https://pywebview.flowrl.com/api/#webview-menu)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -134,6 +135,22 @@ Executes arbitrary JavaScript in the webview and returns the result.
 | `code` | `str` | The JavaScript code to execute. |
 
 **Returns:** the JavaScript return value as a Python object, or `None`.
+
+### `set_events(**kwargs)`
+Sets one or more window event handlers. Can be called once with all handlers or multiple times individually.
+More info: [pywebview window event docs](https://pywebview.flowrl.com/api/#window-events)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `on_close` | `callable` | Called after the window closes. Always followed by app exit. |
+| `on_closing` | `callable` | Called before the window closes. Return `False` to cancel the close. |
+| `on_shown` | `callable` | Called when the window becomes visible. |
+| `on_minimize` | `callable` | Called when the window is minimized. |
+| `on_restore` | `callable` | Called when the window is restored from minimized state. |
+| `on_resize` | `callable` | Called when the window is resized. Receives `(width, height)` as arguments. |
+
+**Note:** Other pywebview events can still be added through `app.window.events`
+**Note:** Must be called before `run_as_app()`. The app will always exit after `on_close` completes — returning `False` from `on_close` does not cancel the exit, use `on_closing` for that instead.
 
 ### `minimize()`
 Minimizes the app window.

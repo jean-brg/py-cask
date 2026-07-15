@@ -40,6 +40,7 @@ class Cask(Flask):
         super().__init__(import_name, *args, **kwargs)
 
         self._menu = None
+        self._events = {}
         self.window = None
         self._base_instance: str = ""
         self.is_instance_initiated: bool = False
@@ -220,6 +221,21 @@ class Cask(Flask):
         self._require_window()
         self.window.show()
 
+    def set_events(self, **kwargs) -> None:
+        """Sets one or more window event handlers."""
+        if on_close := kwargs.get("on_close"):
+            self._events["closed"] = on_close
+        if on_closing := kwargs.get("on_closing"):
+            self._events["closing"] = on_closing
+        if on_shown := kwargs.get("on_shown"):
+            self._events["shown"] = on_shown
+        if on_minimize := kwargs.get("on_minimize"):
+            self._events["minimized"] = on_minimize
+        if on_restore := kwargs.get("on_restore"):
+            self._events["restored"] = on_restore
+        if on_resize := kwargs.get("on_resize"):
+            self._events["resized"] = on_resize
+
     # APP METHODS
     def run_as_app(self, **kwargs) -> None:
         """Main method to run Cask app in app window"""
@@ -259,7 +275,15 @@ class Cask(Flask):
                 **window_options
             )
 
-        self.window.events.closed += lambda: sys.exit(0)
+        def _handle_closed(self) -> None:
+            if handler := self._events.get("closed"):
+                handler()
+            sys.exit(0)
+
+        for event, handler in self._events.items():
+            getattr(self.window.events, event) += handler
+
+        self.window.events.closed += _handle_closed
         webview.start(icon=icon_path)
 
     def get_instance_file_path(self, filename: str = "") -> str:
