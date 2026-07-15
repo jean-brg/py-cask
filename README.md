@@ -22,21 +22,25 @@ pip install pyinstaller
 Full API reference is available in [/docs](/docs).
 
 ## Quickstart
-Cask wraps the `Flask` object, meaning you don't need to rewrite any code to use Cask. Just change the import, app object, and run it with `run_as_app()` to run the code as the app.
+Cask is a drop-in Flask replacement. Just swap your import and change your app object. All existing Flask imports work out-of-the-box, just from `cask` instead.
 
 ```python
-# main.py
-from cask import Cask
- 
+# Before
+from flask import Flask, render_template
+app = Flask(__name__)
+
+# After
+from cask import Cask, render_template
 app = Cask(__name__, app_name="My App")
- 
-@app.route("/")
-def home():
-    return "<h1>Hello from Cask!</h1>"
- 
+```
+
+Then call `run_as_app()` instead of `run()`:
+```python
 if __name__ == "__main__":
     app.run_as_app()
 ```
+
+Your routes, templates, and Flask code work as-is. pywebview's menu API (`Menu`, `MenuAction`, `MenuSeparator`) is also importable directly from `cask`.
 
 Run with:
 ```bash
