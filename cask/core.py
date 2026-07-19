@@ -42,7 +42,7 @@ class Cask(Flask):
         self._menu = None
         self._events = {}
         self.window = None
-        self._base_instance: str = ""
+        self._base_app_data: str = ""
         self.is_instance_initiated: bool = False
         self.is_running_as_package: bool = getattr(sys, "frozen", False)
         self.app_name: str = self._safe_app_name(app_name) if app_name else "MyCaskApp"
@@ -64,21 +64,21 @@ class Cask(Flask):
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             return s.getsockname()[1]
         
-    def _init_instance(self) -> None:
-        """Initializes the instance directory and sets the `_base_instance` path"""
-        self._base_instance = self._get_instance_path()
+    def _init_app_data(self) -> None:
+        """Initializes the app data directory and sets the _base_app_data path"""
+        self._base_app_data = self._get_app_data_path()
 
         if not self.is_running_as_package:
             return
 
-        instance_source_dir = os.path.join(self.root_path, "instance")
-        if not os.path.exists(instance_source_dir):
+        source_dir = os.path.join(self.root_path, "instance")
+        if not os.path.exists(source_dir):
             return
 
-        os.makedirs(self._base_instance, exist_ok=True)
-        for filename in os.listdir(instance_source_dir):
-            src = os.path.join(instance_source_dir, filename)
-            dest = os.path.join(self._base_instance, filename)
+        os.makedirs(self._base_app_data, exist_ok=True)
+        for filename in os.listdir(source_dir):
+            src = os.path.join(source_dir, filename)
+            dest = os.path.join(self._base_app_data, filename)
             if os.path.exists(dest):
                 continue
             if os.path.isdir(src):
@@ -102,15 +102,15 @@ class Cask(Flask):
         path = os.path.join(self.static_folder, f"caskicon.{ext}")
         return path if os.path.isfile(path) else None
     
-    def _get_instance_path(self) -> str:
-        """Returns the path to the instance folder, based on the system and app state"""
+    def _get_app_data_path(self) -> str:
+        """Returns the path to the app's data folder, based on the system and app state"""
         if self.is_running_as_package:
             if sys.platform == "darwin":
-                return os.path.join(os.path.expanduser("~"), "Library", "Application Support", self.app_name, "instance")
+                return os.path.join(os.path.expanduser("~"), "Library", "Application Support", self.app_name)
             elif sys.platform == "win32":
-                return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), self.app_name, "instance")
+                return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), self.app_name)
             else:
-                return os.path.join(os.path.expanduser("~"), ".local", "share", self.app_name, "instance")
+                return os.path.join(os.path.expanduser("~"), ".local", "share", self.app_name)
         return os.path.join(self.root_path, "instance")
     
     def _wait_for_flask(self, port: int, timeout: float = 10.0) -> bool:
@@ -288,25 +288,25 @@ class Cask(Flask):
         self.window.events.closed += _handle_closed
         webview.start(icon=icon_path)
 
-    def get_instance_file_path(self, filename: str = "") -> str:
-        """Returns the file path for a file in `instance`"""
+    def get_app_data_path(self, filename: str = "") -> str:
+        """Returns the file path for a file in app's data folder"""
         if not self.is_instance_initiated:
-            self._init_instance()
+            self._init_app_data()
             self.is_instance_initiated = True
 
-        return os.path.join(self._base_instance, filename) if filename else self._base_instance
+        return os.path.join(self._base_app_data, filename) if filename else self._base_app_data
     
-    def read_from_instance_file(self, filename: str, default: str = "", mode: str = "r") -> str:
-        """Reads and returns the content of a file in `instance`"""
-        path = self.get_instance_file_path(filename)
+    def read_from_app_data(self, filename: str, default: str = "", mode: str = "r") -> str:
+        """Reads and returns the content of a file in the app's data folder"""
+        path = self.get_app_data_path(filename)
         if not os.path.exists(path):
             return default
         with open(path, mode) as f:
             return f.read()
         
-    def write_to_instance_file(self, filename: str, content: str, mode: str = "w") -> None:
-        """Writes the content of a file in `instance`, creating the file (and any parent dirs) if needed"""
-        path = self.get_instance_file_path(filename)
+    def write_to_app_data(self, filename: str, content: str, mode: str = "w") -> None:
+        """Writes the content of a file in the app's data folder, creating the file (and any parent dirs) if needed"""
+        path = self.get_app_data_path(filename)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, mode) as f:
             f.write(content)

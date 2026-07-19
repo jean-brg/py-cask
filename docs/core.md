@@ -10,7 +10,7 @@ A Flask subclass that runs your web app as a native desktop application via pywe
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
 | `import_name` | `str` | The name of the application package, passed to Flask. Usually `__name__`. | — |
-| `app_name` | `str` | The name shown in the window title bar and used for the instance folder path. | `'MyCaskApp'` |
+| `app_name` | `str` | The name shown in the window title bar and used for the app data folder path. | `'MyCaskApp'` |
 
 **Note:** `app_name` is sanitized on init — only alphanumeric characters, spaces, and hyphens are allowed. A `ValueError` is raised if the name is empty after sanitization.
 
@@ -38,33 +38,33 @@ More info: [pywebview menu docs](https://pywebview.flowrl.com/api/#webview-menu)
 
 **Note:** The menu is static after the app starts — pywebview does not support runtime menu updates.
 
-### `get_instance_file_path(filename='')`
-Returns the correct path to a file in the instance folder, regardless of whether the app is running in development or as a packaged executable.
+### `get_app_data_path(filename='')`
+Returns the path to a file in the app data folder, regardless of whether the app is running in development or as a packaged executable.
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `filename` | `str` | The filename to resolve inside the instance folder. If omitted, returns the instance folder path itself. | `''` |
+| `filename` | `str` | The filename to resolve inside the app data folder. If omitted, returns the folder path itself. | `''` |
 
 **Returns:** `str` — the full path to the file or folder.  
-**Note:** The instance folder is created on first call. On macOS it is `~/Library/Application Support/<app name>/instance/`, on Windows `%APPDATA%/<app name>/instance/`, and on Linux `~/.local/share/<app name>/instance/`. In development it resolves to `instance/` relative to your entry file.
+**Note:** The folder is created on first call. On macOS it is `~/Library/Application Support/<app name>/`, on Windows `%APPDATA%/<app name>/`, and on Linux `~/.local/share/<app name>/`. In development it resolves to `instance/` relative to your entry file, following Flask convention.
 
-### `read_from_instance_file(filename, default='', mode='r')`
-Reads and returns the content of a file in the instance folder.
+### `read_from_app_data(filename, default='', mode='r')`
+Reads and returns the content of a file in the app data folder.
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `filename` | `str` | The filename to read from the instance folder. | — |
+| `filename` | `str` | The filename to read from the app's data folder. | — |
 | `default` | `str` | The value returned if the file does not exist yet. | `''` |
 | `mode` | `str` | The file open mode, e.g. `'r'` for text or `'rb'` for binary. | `'r'` |
 
 **Returns:** `str` — the file content, or `default` if the file does not exist.
 
-### `write_to_instance_file(filename, content, mode='w')`
-Writes content to a file in the instance folder, creating the file and any parent directories if needed.
+### `write_to_app_data(filename, content, mode='w')`
+Writes content to a file in the app data folder, creating the file and any parent directories if needed.
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `filename` | `str` | The filename to write to in the instance folder. | — |
+| `filename` | `str` | The filename to write to in the app's data folder. | — |
 | `content` | `str` | The content to write. | — |
 | `mode` | `str` | The file open mode, e.g. `'w'` to overwrite or `'a'` to append. | `'w'` |
 
@@ -89,7 +89,7 @@ Opens a native save file dialog and returns the chosen destination path.
 
 **Returns:** `str` — the full destination path chosen by the user, or `None` if cancelled.  
 **Raises:** `RuntimeError` — if called before `run_as_app()`.  
-**Note:** This returns the intended save path — the file is not written automatically. Use the returned path with `open()` or `write_to_instance_file()` to write the file.
+**Note:** This returns the intended save path, but the file is not written automatically. Use the returned path with `open()` or `write_to_app_data()` to write and save the file.
 
 ### `open_folder()`
 Opens a native folder picker dialog and returns the selected folder path.

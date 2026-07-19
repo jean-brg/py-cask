@@ -60,8 +60,10 @@ my-app/
 │   └── caskicon.icns   # or .ico on Windows/Linux (Optional)
 ├── templates/
 │   └── index.html
-└── instance/           # For runtime data (databases, config, etc.) (Optional)
+└── instance/           # Runtime data for development (See below)
 ```
+
+**Note:** The `instance/` folder is for runtime data in development. When packaged, Cask automatically maps it to the correct OS app data folder (`~/Library/Application Support/<app name>/` on macOS, `%APPDATA%/<app name>/` on Windows, `~/.local/share/<app name>/` on Linux).
 
 ## Packaging into an Executable
 ```bash
@@ -82,6 +84,7 @@ icon = "static/caskicon.ico"
 [data]
 "static" = "static"
 "templates" = "templates"
+# "instance" = "instance"   # uncomment to bundle seed files (e.g. a default database)
 ```
 
 | Field       | Required | Description                                                          |

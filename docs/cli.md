@@ -44,11 +44,12 @@ icon = "static/caskicon.icns"  # Optional - Icon used in taskbar
 # "source" = "destination" pairs, relative to cask.toml
 "static" = "static"
 "templates" = "templates"
-"instance/default.db" = "instance"  # only for seed files, not runtime data
+# "instance" = "instance"   # uncomment to bundle seed files (e.g. a default database)
 ```
 
 The `name` property must contain only alphanumeric characters, spaces, or hyphens.
 
+The `instance/` folder is for runtime data in development. When packaged, Cask automatically maps it to the correct OS app data folder (`~/Library/Application Support/<app name>/` on macOS, `%APPDATA%/<app name>/` on Windows, `~/.local/share/<app name>/` on Linux).
 
 ## cask build
 Reads `cask.toml` and packages your app into an executable using PyInstaller. Requires `pip install pyinstaller`.
