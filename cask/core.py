@@ -275,13 +275,15 @@ class Cask(Flask):
                 **window_options
             )
 
-        def _handle_closed(self) -> None:
+        def _handle_closed() -> None:
             if handler := self._events.get("closed"):
                 handler()
             sys.exit(0)
 
         for event, handler in self._events.items():
-            getattr(self.window.events, event) += handler
+            if event != "closed":
+                event_obj = getattr(self.window.events, event)
+                event_obj += handler
 
         self.window.events.closed += _handle_closed
         webview.start(icon=icon_path)
